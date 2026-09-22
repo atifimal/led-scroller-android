@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textColor="@color/accent"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Live preview -->
+        <com.example.ledscroller.LedScrollView
+            android:id="@+id/previewLed"
+            android:layout_width="match_parent"
+            android:layout_height="90dp"
+            android:layout_marginBottom="16dp" />
+
+        <EditText
+            android:id="@+id/editMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Mesajınızı yazın..."
+            android:textColorHint="@color/text_secondary"
+            android:textColor="@color/text_primary"
+            android:inputType="textCapSentences|textMultiLine"
+            android:minLines="2"
+            android:background="@color/panel_bg"
+            android:padding="12dp" />
+
+        <TextView
+            style="@style/SectionLabel"
+            android:text="Yazı Rengi" />
+        <LinearLayout
+            android:id="@+id/rowTextColor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+
+        <TextView
+            style="@style/SectionLabel"
+            android:text="Arkaplan Rengi" />
+        <LinearLayout
+            android:id="@+id/rowBgColor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+
+        <TextView
+            style="@style/SectionLabel"
+            android:text="Kayma Yönü" />
+        <RadioGroup
+            android:id="@+id/radioDirection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <RadioButton
+                android:id="@+id/radioLeft"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sola kay"
+                android:textColor="@color/text_primary"
+                android:checked="true" />
+            <RadioButton
+                android:id="@+id/radioRight"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sağa kay"
+                android:textColor="@color/text_primary"
+                android:layout_marginStart="16dp" />
+            <RadioButton
+                android:id="@+id/radioStatic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sabit (yanıp sön)"
+                android:textColor="@color/text_primary"
+                android:layout_marginStart="16dp" />
+        </RadioGroup>
+
+        <TextView
+            style="@style/SectionLabel"
+            android:text="Hız" />
+        <SeekBar
+            android:id="@+id/seekSpeed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="30"
+            android:progress="10" />
+
+        <TextView
+            style="@style/SectionLabel"
+            android:text="Yazı Boyutu" />
+        <SeekBar
+            android:id="@+id/seekSize"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="140"
+            android:progress="60" />
+
+        <CheckBox
+            android:id="@+id/checkBlink"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yanıp sönme efekti"
+            android:textColor="@color/text_primary"
+            android:layout_marginTop="8dp" />
+
+        <CheckBox
+            android:id="@+id/checkBold"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Kalın yazı"
+            android:textColor="@color/text_primary" />
+
+        <CheckBox
+            android:id="@+id/checkMirror"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ayna modu (ekranı karşıya çevirip okutmak için)"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            style="@style/SectionLabel"
+            android:text="Kayıtlı Mesajlar" />
+        <Spinner
+            android:id="@+id/spinnerSaved"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/panel_bg"
+            android:padding="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:weightSum="3">
+            <Button
+                android:id="@+id/btnLoad"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Yükle" />
+            <Button
+                android:id="@+id/btnSave"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Kaydet" />
+            <Button
+                android:id="@+id/btnDelete"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Sil" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnStart"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="@color/accent"
+            android:text="TAM EKRAN LED'İ BAŞLAT"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+</ScrollView>

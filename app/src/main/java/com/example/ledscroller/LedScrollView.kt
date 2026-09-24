@@ -1,20 +1,40 @@
 package com.example.ledscroller
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Shader
 import android.graphics.Typeface
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
-import android.view.animation.LinearInterpolator
+import kotlin.random.Random
 
 /**
  * Direction the message scrolls across the screen.
  */
 enum class ScrollDirection {
     LEFT, RIGHT, STATIC_BLINK
+}
+
+/**
+ * Font families available for the LED text, backed by Android's built-in
+ * typeface families so no extra font assets are needed.
+ */
+enum class LedFontFamily(val base: Typeface, val label: String) {
+    MONOSPACE(Typeface.MONOSPACE, "Monospace"),
+    SANS_SERIF(Typeface.SANS_SERIF, "Sans Serif"),
+    SERIF(Typeface.SERIF, "Serif"),
+    DEFAULT(Typeface.DEFAULT, "Varsayılan")
 }
 
 /**
@@ -63,8 +83,15 @@ class LedScrollView @JvmOverloads constructor(
     var bold: Boolean = false
         set(value) {
             field = value
-            paint.typeface = if (value) Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            else Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+            updateTypeface()
+            invalidate()
+        }
+
+    var fontFamily: LedFontFamily = LedFontFamily.MONOSPACE
+        set(value) {
+            field = value
+            updateTypeface()
+            requestLayout()
             invalidate()
         }
 
@@ -89,6 +116,13 @@ class LedScrollView @JvmOverloads constructor(
 
     var blinkEnabled: Boolean = false
 
+    /** Renders the text as a grid of round LED-style dots instead of smooth glyphs. */
+    var dotMatrix: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     private val glowRadius = 18f
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -98,8 +132,25 @@ class LedScrollView @JvmOverloads constructor(
         setShadowLayer(glowRadius, 0f, 0f, textColor)
     }
 
-    private var scrollAnimator: ValueAnimator? = null
+    private val dimDotPaint = Paint()
+    private val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val dstInXfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+    private var dotShader: BitmapShader? = null
+    private var dotShaderCellPx = -1f
+
     private var blinkAnimator: ValueAnimator? = null
+
+    private val flickerHandler = Handler(Looper.getMainLooper())
+    private var flickerRunnable: Runnable? = null
+    private var flickerAlpha = 255
+
+    private val scrollHandler = Handler(Looper.getMainLooper())
+    private var scrollRunnable: Runnable? = null
+    private var lastFrameTimeNs = 0L
+
+    private var isDragging = false
+    private var dragStartRawX = 0f
+    private var dragStartOffsetX = 0f
 
     private var offsetX = 0f
     private var currentAlpha = 255
@@ -130,24 +181,7 @@ class LedScrollView @JvmOverloads constructor(
         }
 
         if (direction != ScrollDirection.STATIC_BLINK) {
-            val distance = textWidth() + width
-            val durationMs = (distance / (speedLevel * 6f) * 1000f).toLong().coerceAtLeast(300)
-
-            scrollAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = durationMs
-                repeatCount = ValueAnimator.INFINITE
-                interpolator = LinearInterpolator()
-                addUpdateListener { anim ->
-                    val fraction = anim.animatedValue as Float
-                    offsetX = if (direction == ScrollDirection.LEFT) {
-                        width - fraction * distance
-                    } else {
-                        -textWidth() + fraction * distance
-                    }
-                    invalidate()
-                }
-                start()
-            }
+            startScrollLoop()
         }
 
         if (blinkEnabled) {
@@ -164,17 +198,81 @@ class LedScrollView @JvmOverloads constructor(
         } else {
             currentAlpha = 255
         }
+
+        startFlicker()
     }
 
     fun stopAnimating() {
-        scrollAnimator?.cancel()
-        scrollAnimator = null
+        stopScrollLoop()
         blinkAnimator?.cancel()
         blinkAnimator = null
+        stopFlicker()
+    }
+
+    /** Continuous, time-based scroll loop (instead of a fixed-duration animator) so a
+     *  touch-drag can pause it and resume smoothly from wherever the user left it. */
+    private fun startScrollLoop() {
+        stopScrollLoop()
+        lastFrameTimeNs = System.nanoTime()
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!isDragging) {
+                    val now = System.nanoTime()
+                    val dtSeconds = (now - lastFrameTimeNs) / 1_000_000_000f
+                    lastFrameTimeNs = now
+
+                    val distance = textWidth() + width
+                    val pxPerSecond = speedLevel * 24f
+                    if (direction == ScrollDirection.LEFT) {
+                        offsetX -= pxPerSecond * dtSeconds
+                        if (offsetX < -textWidth()) offsetX += distance
+                    } else {
+                        offsetX += pxPerSecond * dtSeconds
+                        if (offsetX > width) offsetX -= distance
+                    }
+                    invalidate()
+                } else {
+                    // Keep the clock fresh while paused so we don't jump on resume.
+                    lastFrameTimeNs = System.nanoTime()
+                }
+                scrollHandler.postDelayed(this, FRAME_DELAY_MS)
+            }
+        }
+        scrollRunnable = runnable
+        scrollHandler.post(runnable)
+    }
+
+    private fun stopScrollLoop() {
+        scrollRunnable?.let { scrollHandler.removeCallbacks(it) }
+        scrollRunnable = null
+    }
+
+    /** Subtle, always-on brightness jitter so the sign feels like real, slightly imperfect LEDs. */
+    private fun startFlicker() {
+        stopFlicker()
+        val runnable = object : Runnable {
+            override fun run() {
+                flickerAlpha = if (Random.nextFloat() < 0.12f) (210..240).random() else 255
+                invalidate()
+                flickerHandler.postDelayed(this, (70..170).random().toLong())
+            }
+        }
+        flickerRunnable = runnable
+        flickerHandler.post(runnable)
+    }
+
+    private fun stopFlicker() {
+        flickerRunnable?.let { flickerHandler.removeCallbacks(it) }
+        flickerRunnable = null
+        flickerAlpha = 255
     }
 
     private fun restartAnimationIfRunning() {
         if (isAttachedToWindow) startAnimating()
+    }
+
+    private fun updateTypeface() {
+        paint.typeface = Typeface.create(fontFamily.base, if (bold) Typeface.BOLD else Typeface.NORMAL)
     }
 
     private fun textWidth(): Float = paint.measureText(text)
@@ -184,11 +282,38 @@ class LedScrollView @JvmOverloads constructor(
         restartAnimationIfRunning()
     }
 
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (direction == ScrollDirection.STATIC_BLINK) return super.onTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                isDragging = true
+                dragStartRawX = event.x
+                dragStartOffsetX = offsetX
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (isDragging) {
+                    offsetX = dragStartOffsetX + (event.x - dragStartRawX)
+                    invalidate()
+                    return true
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (isDragging) {
+                    isDragging = false
+                    return true
+                }
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawColor(backgroundColorLed)
 
-        paint.alpha = currentAlpha
+        paint.alpha = (currentAlpha * flickerAlpha / 255f).toInt().coerceIn(0, 255)
 
         val baselineY = height / 2f - (paint.descent() + paint.ascent()) / 2f
 
@@ -203,10 +328,65 @@ class LedScrollView @JvmOverloads constructor(
             canvas.scale(-1f, 1f, width / 2f, height / 2f)
         }
 
-        canvas.drawText(text, drawX, baselineY, paint)
+        if (dotMatrix) {
+            drawDotMatrixText(canvas, drawX, baselineY)
+        } else {
+            drawGlowText(canvas, drawX, baselineY)
+        }
 
         if (mirror) {
             canvas.restore()
         }
+    }
+
+    /** Draws the text twice: a wide soft "bloom" pass, then a sharper pass on top. */
+    private fun drawGlowText(canvas: Canvas, x: Float, y: Float) {
+        val baseAlpha = paint.alpha
+
+        paint.setShadowLayer(glowRadius * 2.4f, 0f, 0f, textColor)
+        paint.alpha = (baseAlpha * 0.45f).toInt()
+        canvas.drawText(text, x, y, paint)
+
+        paint.setShadowLayer(glowRadius, 0f, 0f, textColor)
+        paint.alpha = baseAlpha
+        canvas.drawText(text, x, y, paint)
+    }
+
+    /** Masks the glowing text down to a repeating grid of round dots, like a real LED panel. */
+    private fun drawDotMatrixText(canvas: Canvas, x: Float, y: Float) {
+        ensureDotShader()
+
+        // Dim, always-visible dots across the whole panel (the "unlit" LEDs).
+        dimDotPaint.shader = dotShader
+        dimDotPaint.color = textColor
+        dimDotPaint.alpha = 28
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimDotPaint)
+
+        val layer = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
+        drawGlowText(canvas, x, y)
+        maskPaint.shader = dotShader
+        maskPaint.xfermode = dstInXfermode
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), maskPaint)
+        maskPaint.xfermode = null
+        canvas.restoreToCount(layer)
+    }
+
+    private fun ensureDotShader() {
+        val cellPx = (DOT_SPACING_DP * resources.displayMetrics.density).coerceAtLeast(4f)
+        if (dotShader != null && dotShaderCellPx == cellPx) return
+        dotShaderCellPx = cellPx
+
+        val size = cellPx.toInt().coerceAtLeast(4)
+        val tile = Bitmap.createBitmap(size, size, Bitmap.Config.ALPHA_8)
+        val tileCanvas = Canvas(tile)
+        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        tileCanvas.drawCircle(size / 2f, size / 2f, size * 0.38f, dotPaint)
+
+        dotShader = BitmapShader(tile, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+    }
+
+    private companion object {
+        const val DOT_SPACING_DP = 6f
+        const val FRAME_DELAY_MS = 16L
     }
 }

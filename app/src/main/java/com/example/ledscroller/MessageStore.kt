@@ -12,7 +12,9 @@ data class SavedMessage(
     val directionOrdinal: Int,
     val blink: Boolean,
     val bold: Boolean,
-    val mirror: Boolean
+    val mirror: Boolean,
+    val fontOrdinal: Int = 0,
+    val dotMatrix: Boolean = false
 )
 
 /**
@@ -42,7 +44,9 @@ class MessageStore(context: Context) {
                     directionOrdinal = fields[6].toInt(),
                     blink = fields[7] == "1",
                     bold = fields[8] == "1",
-                    mirror = fields[9] == "1"
+                    mirror = fields[9] == "1",
+                    fontOrdinal = fields.getOrNull(10)?.toIntOrNull() ?: 0,
+                    dotMatrix = fields.getOrNull(11) == "1"
                 )
             } catch (e: NumberFormatException) {
                 null
@@ -71,7 +75,9 @@ class MessageStore(context: Context) {
                 m.speedProgress, m.directionOrdinal,
                 if (m.blink) "1" else "0",
                 if (m.bold) "1" else "0",
-                if (m.mirror) "1" else "0"
+                if (m.mirror) "1" else "0",
+                m.fontOrdinal,
+                if (m.dotMatrix) "1" else "0"
             ).joinToString(FIELD_SEP)
         }
         prefs.edit().putString(KEY_MESSAGES, encoded).apply()

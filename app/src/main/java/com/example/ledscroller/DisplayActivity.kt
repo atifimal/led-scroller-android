@@ -19,6 +19,8 @@ class DisplayActivity : AppCompatActivity() {
         const val EXTRA_BLINK = "extra_blink"
         const val EXTRA_BOLD = "extra_bold"
         const val EXTRA_MIRROR = "extra_mirror"
+        const val EXTRA_FONT = "extra_font"
+        const val EXTRA_DOT_MATRIX = "extra_dot_matrix"
     }
 
     private lateinit var ledView: LedScrollView
@@ -26,9 +28,9 @@ class DisplayActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        hideSystemBars()
 
         setContentView(R.layout.activity_display)
+        hideSystemBars()
         ledView = findViewById(R.id.ledView)
 
         val message = intent.getStringExtra(EXTRA_TEXT) ?: "LED SCROLLER"
@@ -40,19 +42,20 @@ class DisplayActivity : AppCompatActivity() {
         val blink = intent.getBooleanExtra(EXTRA_BLINK, false)
         val bold = intent.getBooleanExtra(EXTRA_BOLD, false)
         val mirror = intent.getBooleanExtra(EXTRA_MIRROR, false)
+        val fontOrdinal = intent.getIntExtra(EXTRA_FONT, 0)
+        val dotMatrix = intent.getBooleanExtra(EXTRA_DOT_MATRIX, false)
 
         ledView.text = message
         ledView.textColor = textColor
         ledView.backgroundColorLed = bgColor
         ledView.textSizePx = size
+        ledView.fontFamily = LedFontFamily.entries.getOrElse(fontOrdinal) { LedFontFamily.MONOSPACE }
         ledView.bold = bold
         ledView.mirror = mirror
+        ledView.dotMatrix = dotMatrix
         ledView.blinkEnabled = blink
         ledView.speedLevel = speed
         ledView.direction = ScrollDirection.entries.toTypedArray().getOrElse(directionOrdinal) { ScrollDirection.LEFT }
-
-        // Tap anywhere to leave the fullscreen LED display.
-        ledView.setOnClickListener { finish() }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

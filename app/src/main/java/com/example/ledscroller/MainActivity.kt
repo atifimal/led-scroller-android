@@ -41,8 +41,11 @@ class MainActivity : AppCompatActivity() {
         Color.parseColor("#FFFFFF")  // white
     )
 
+    private val fontOptions = LedFontFamily.entries.toList()
+
     private var selectedTextColor = textColorOptions[0]
     private var selectedBgColor = bgColorOptions[0]
+    private var selectedFont = fontOptions[0]
 
     private lateinit var preview: LedScrollView
     private lateinit var editMessage: EditText
@@ -52,7 +55,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var checkBlink: CheckBox
     private lateinit var checkBold: CheckBox
     private lateinit var checkMirror: CheckBox
+    private lateinit var checkDotMatrix: CheckBox
     private lateinit var spinnerSaved: Spinner
+    private lateinit var spinnerFont: Spinner
 
     private lateinit var store: MessageStore
     private var savedNames: List<String> = emptyList()
@@ -71,7 +76,20 @@ class MainActivity : AppCompatActivity() {
         checkBlink = findViewById(R.id.checkBlink)
         checkBold = findViewById(R.id.checkBold)
         checkMirror = findViewById(R.id.checkMirror)
+        checkDotMatrix = findViewById(R.id.checkDotMatrix)
         spinnerSaved = findViewById(R.id.spinnerSaved)
+        spinnerFont = findViewById(R.id.spinnerFont)
+
+        spinnerFont.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, fontOptions.map { it.label }
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinnerFont.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                selectedFont = fontOptions[position]
+                updatePreview()
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
 
         buildColorRow(findViewById(R.id.rowTextColor), textColorOptions) { color ->
             selectedTextColor = color
@@ -90,6 +108,7 @@ class MainActivity : AppCompatActivity() {
         checkBlink.setOnCheckedChangeListener { _, _ -> updatePreview() }
         checkBold.setOnCheckedChangeListener { _, _ -> updatePreview() }
         checkMirror.setOnCheckedChangeListener { _, _ -> updatePreview() }
+        checkDotMatrix.setOnCheckedChangeListener { _, _ -> updatePreview() }
         seekSpeed.setOnSeekBarChangeListener(simpleSeekListener { updatePreview() })
         seekSize.setOnSeekBarChangeListener(simpleSeekListener { updatePreview() })
 
@@ -117,8 +136,10 @@ class MainActivity : AppCompatActivity() {
         preview.textColor = selectedTextColor
         preview.backgroundColorLed = selectedBgColor
         preview.textSizePx = currentSizePx() / 2.2f // smaller for the in-app preview box
+        preview.fontFamily = selectedFont
         preview.bold = checkBold.isChecked
         preview.mirror = checkMirror.isChecked
+        preview.dotMatrix = checkDotMatrix.isChecked
         preview.blinkEnabled = checkBlink.isChecked
         preview.speedLevel = (seekSpeed.progress).coerceAtLeast(1)
         preview.direction = ScrollDirection.entries.toTypedArray()[currentDirectionOrdinal()]
@@ -137,6 +158,8 @@ class MainActivity : AppCompatActivity() {
             putExtra(DisplayActivity.EXTRA_BLINK, checkBlink.isChecked)
             putExtra(DisplayActivity.EXTRA_BOLD, checkBold.isChecked)
             putExtra(DisplayActivity.EXTRA_MIRROR, checkMirror.isChecked)
+            putExtra(DisplayActivity.EXTRA_FONT, selectedFont.ordinal)
+            putExtra(DisplayActivity.EXTRA_DOT_MATRIX, checkDotMatrix.isChecked)
         }
         startActivity(intent)
     }
@@ -160,7 +183,9 @@ class MainActivity : AppCompatActivity() {
                 directionOrdinal = currentDirectionOrdinal(),
                 blink = checkBlink.isChecked,
                 bold = checkBold.isChecked,
-                mirror = checkMirror.isChecked
+                mirror = checkMirror.isChecked,
+                fontOrdinal = selectedFont.ordinal,
+                dotMatrix = checkDotMatrix.isChecked
             )
         )
         Toast.makeText(this, "Kaydedildi", Toast.LENGTH_SHORT).show()
@@ -180,6 +205,9 @@ class MainActivity : AppCompatActivity() {
         checkBlink.isChecked = saved.blink
         checkBold.isChecked = saved.bold
         checkMirror.isChecked = saved.mirror
+        checkDotMatrix.isChecked = saved.dotMatrix
+        selectedFont = fontOptions.getOrElse(saved.fontOrdinal) { fontOptions[0] }
+        spinnerFont.setSelection(selectedFont.ordinal)
         radioDirection.check(
             when (ScrollDirection.entries.toTypedArray().getOrElse(saved.directionOrdinal) { ScrollDirection.LEFT }) {
                 ScrollDirection.LEFT -> R.id.radioLeft

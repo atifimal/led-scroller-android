@@ -106,8 +106,18 @@
             android:id="@+id/seekSize"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:max="140"
+            android:max="260"
             android:progress="60" />
+
+        <TextView
+            style="@style/SectionLabel"
+            android:text="Yazı Tipi" />
+        <Spinner
+            android:id="@+id/spinnerFont"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/panel_bg"
+            android:padding="8dp" />
 
         <CheckBox
             android:id="@+id/checkBlink"
@@ -131,6 +141,13 @@
             android:text="Ayna modu (ekranı karşıya çevirip okutmak için)"
             android:textColor="@color/text_primary" />
 
+        <CheckBox
+            android:id="@+id/checkDotMatrix"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LED nokta matrisi modu"
+            android:textColor="@color/text_primary" />
+
         <TextView
             style="@style/SectionLabel"
             android:text="Kayıtlı Mesajlar" />
@@ -152,12 +169,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:layout_marginEnd="8dp"
                 android:text="Yükle" />
             <Button
                 android:id="@+id/btnSave"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:layout_marginEnd="8dp"
                 android:text="Kaydet" />
             <Button
                 android:id="@+id/btnDelete"

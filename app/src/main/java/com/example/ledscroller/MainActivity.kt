@@ -6,6 +6,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
@@ -16,7 +17,9 @@ import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -56,11 +59,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var checkBold: CheckBox
     private lateinit var checkMirror: CheckBox
     private lateinit var checkDotMatrix: CheckBox
-    private lateinit var spinnerSaved: Spinner
+    private lateinit var savedList: LinearLayout
+    private lateinit var textSavedEmpty: TextView
     private lateinit var spinnerFont: Spinner
 
     private lateinit var store: MessageStore
-    private var savedNames: List<String> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,7 +80,8 @@ class MainActivity : AppCompatActivity() {
         checkBold = findViewById(R.id.checkBold)
         checkMirror = findViewById(R.id.checkMirror)
         checkDotMatrix = findViewById(R.id.checkDotMatrix)
-        spinnerSaved = findViewById(R.id.spinnerSaved)
+        savedList = findViewById(R.id.savedList)
+        textSavedEmpty = findViewById(R.id.textSavedEmpty)
         spinnerFont = findViewById(R.id.spinnerFont)
 
         spinnerFont.adapter = ArrayAdapter(
@@ -112,11 +116,9 @@ class MainActivity : AppCompatActivity() {
         seekSpeed.setOnSeekBarChangeListener(simpleSeekListener { updatePreview() })
         seekSize.setOnSeekBarChangeListener(simpleSeekListener { updatePreview() })
 
-        refreshSavedSpinner()
+        refreshSavedList()
 
         findViewById<Button>(R.id.btnSave).setOnClickListener { onSaveClicked() }
-        findViewById<Button>(R.id.btnLoad).setOnClickListener { onLoadClicked() }
-        findViewById<Button>(R.id.btnDelete).setOnClickListener { onDeleteClicked() }
         findViewById<Button>(R.id.btnStart).setOnClickListener { startFullscreen() }
     }
 
@@ -189,14 +191,10 @@ class MainActivity : AppCompatActivity() {
             )
         )
         Toast.makeText(this, "Kaydedildi", Toast.LENGTH_SHORT).show()
-        refreshSavedSpinner()
+        refreshSavedList()
     }
 
-    private fun onLoadClicked() {
-        val position = spinnerSaved.selectedItemPosition
-        if (position < 0 || position >= savedNames.size) return
-        val saved = store.loadAll().getOrNull(position) ?: return
-
+    private fun loadSaved(saved: SavedMessage) {
         editMessage.setText(saved.text)
         selectedTextColor = saved.textColor
         selectedBgColor = saved.bgColor
@@ -218,19 +216,37 @@ class MainActivity : AppCompatActivity() {
         updatePreview()
     }
 
-    private fun onDeleteClicked() {
-        val position = spinnerSaved.selectedItemPosition
-        if (position < 0 || position >= savedNames.size) return
-        store.deleteAt(position)
-        refreshSavedSpinner()
-        Toast.makeText(this, "Silindi", Toast.LENGTH_SHORT).show()
+    private fun confirmDelete(position: Int, saved: SavedMessage) {
+        AlertDialog.Builder(this)
+            .setMessage("\"${saved.text.lines().first()}\" silinsin mi?")
+            .setPositiveButton("Sil") { _, _ ->
+                store.deleteAt(position)
+                refreshSavedList()
+                Toast.makeText(this, "Silindi", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Vazgeç", null)
+            .show()
     }
 
-    private fun refreshSavedSpinner() {
-        savedNames = store.loadAll().map { it.name }
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, savedNames)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerSaved.adapter = adapter
+    private fun refreshSavedList() {
+        val messages = store.loadAll()
+        savedList.removeAllViews()
+        val inflater = LayoutInflater.from(this)
+        messages.forEachIndexed { position, saved ->
+            val row = inflater.inflate(R.layout.item_saved_message, savedList, false)
+            row.findViewById<TextView>(R.id.savedSwatch).apply {
+                setBackgroundColor(saved.bgColor)
+                setTextColor(saved.textColor)
+            }
+            row.findViewById<TextView>(R.id.savedName).text = saved.text.replace('\n', ' ')
+            row.findViewById<Button>(R.id.savedDelete).setOnClickListener { confirmDelete(position, saved) }
+            row.setOnClickListener {
+                loadSaved(saved)
+                Toast.makeText(this, "Yüklendi", Toast.LENGTH_SHORT).show()
+            }
+            savedList.addView(row)
+        }
+        textSavedEmpty.visibility = if (messages.isEmpty()) View.VISIBLE else View.GONE
     }
 
     // ---- UI helpers ----

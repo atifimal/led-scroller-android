@@ -3,8 +3,10 @@ package com.example.ledscroller
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 class DisplayActivity : AppCompatActivity() {
@@ -24,10 +26,14 @@ class DisplayActivity : AppCompatActivity() {
     }
 
     private lateinit var ledView: LedScrollView
+    private val tripleTapDetector by lazy { TripleTapDetector(this) { finish() } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (savedInstanceState == null) {
+            Toast.makeText(this, "Çıkmak için ekrana hızlıca 3 kez dokunun", Toast.LENGTH_SHORT).show()
+        }
 
         setContentView(R.layout.activity_display)
         hideSystemBars()
@@ -56,6 +62,12 @@ class DisplayActivity : AppCompatActivity() {
         ledView.blinkEnabled = blink
         ledView.speedLevel = speed
         ledView.direction = ScrollDirection.entries.toTypedArray().getOrElse(directionOrdinal) { ScrollDirection.LEFT }
+    }
+
+    // Observe touches before the LED view (which uses them for dragging) without consuming them.
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        tripleTapDetector.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

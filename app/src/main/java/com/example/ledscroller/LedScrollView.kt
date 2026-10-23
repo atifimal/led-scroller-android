@@ -1,6 +1,5 @@
 package com.example.ledscroller
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
@@ -138,7 +137,9 @@ class LedScrollView @JvmOverloads constructor(
     private var dotShader: BitmapShader? = null
     private var dotShaderCellPx = -1f
 
-    private var blinkAnimator: ValueAnimator? = null
+    private val blinkHandler = Handler(Looper.getMainLooper())
+    private var blinkRunnable: Runnable? = null
+    private var ledsOn = true
 
     private val flickerHandler = Handler(Looper.getMainLooper())
     private var flickerRunnable: Runnable? = null
@@ -153,7 +154,6 @@ class LedScrollView @JvmOverloads constructor(
     private var dragStartOffsetX = 0f
 
     private var offsetX = 0f
-    private var currentAlpha = 255
 
     init {
         // Shadow layers only render with software rendering.
@@ -184,29 +184,46 @@ class LedScrollView @JvmOverloads constructor(
             startScrollLoop()
         }
 
-        if (blinkEnabled) {
-            blinkAnimator = ValueAnimator.ofInt(255, 40).apply {
-                duration = 500
-                repeatMode = ValueAnimator.REVERSE
-                repeatCount = ValueAnimator.INFINITE
-                addUpdateListener { anim ->
-                    currentAlpha = anim.animatedValue as Int
-                    invalidate()
-                }
-                start()
-            }
-        } else {
-            currentAlpha = 255
-        }
+        // The static mode is the blinking mode, so it always blinks.
+        if (blinkEnabled || direction == ScrollDirection.STATIC_BLINK) startBlink()
 
         startFlicker()
     }
 
     fun stopAnimating() {
         stopScrollLoop()
-        blinkAnimator?.cancel()
-        blinkAnimator = null
+        stopBlink()
         stopFlicker()
+    }
+
+    /** Hard on/off switching, like a real LED sign: fully lit, then fully dark. Handler-based
+     *  rather than an animator so it still runs when system animations are turned off. */
+    private fun startBlink() {
+        stopBlink()
+        ledsOn = true
+        val phaseMs = blinkPhaseMs()
+        val runnable = object : Runnable {
+            override fun run() {
+                ledsOn = !ledsOn
+                invalidate()
+                blinkHandler.postDelayed(this, phaseMs)
+            }
+        }
+        blinkRunnable = runnable
+        blinkHandler.postDelayed(runnable, phaseMs)
+    }
+
+    /** How long the LEDs stay on (and then off). In the static mode the speed setting drives
+     *  the blink rate, since there is no scrolling; while scrolling it stays fixed. */
+    private fun blinkPhaseMs(): Long {
+        if (direction != ScrollDirection.STATIC_BLINK) return DEFAULT_BLINK_PHASE_MS
+        return (BLINK_SPEED_FACTOR_MS / speedLevel).coerceIn(MIN_BLINK_PHASE_MS, MAX_BLINK_PHASE_MS)
+    }
+
+    private fun stopBlink() {
+        blinkRunnable?.let { blinkHandler.removeCallbacks(it) }
+        blinkRunnable = null
+        ledsOn = true
     }
 
     /** Continuous, time-based scroll loop (instead of a fixed-duration animator) so a
@@ -313,7 +330,7 @@ class LedScrollView @JvmOverloads constructor(
         super.onDraw(canvas)
         canvas.drawColor(backgroundColorLed)
 
-        paint.alpha = (currentAlpha * flickerAlpha / 255f).toInt().coerceIn(0, 255)
+        paint.alpha = flickerAlpha
 
         val baselineY = height / 2f - (paint.descent() + paint.ascent()) / 2f
 
@@ -330,7 +347,7 @@ class LedScrollView @JvmOverloads constructor(
 
         if (dotMatrix) {
             drawDotMatrixText(canvas, drawX, baselineY)
-        } else {
+        } else if (ledsOn) {
             drawGlowText(canvas, drawX, baselineY)
         }
 
@@ -361,6 +378,7 @@ class LedScrollView @JvmOverloads constructor(
         dimDotPaint.color = textColor
         dimDotPaint.alpha = 28
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimDotPaint)
+        if (!ledsOn) return
 
         val layer = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
         drawGlowText(canvas, x, y)
@@ -388,5 +406,11 @@ class LedScrollView @JvmOverloads constructor(
     private companion object {
         const val DOT_SPACING_DP = 6f
         const val FRAME_DELAY_MS = 16L
+        const val DEFAULT_BLINK_PHASE_MS = 500L
+        // Speed 10 (the default) gives 500 ms, matching the scrolling modes.
+        const val BLINK_SPEED_FACTOR_MS = 5000L
+        const val MAX_BLINK_PHASE_MS = 1500L
+        // 167 ms on + 167 ms off = 3 flashes per second, the usual photosensitivity limit.
+        const val MIN_BLINK_PHASE_MS = 167L
     }
 }

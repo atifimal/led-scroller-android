@@ -151,40 +151,27 @@
         <TextView
             style="@style/SectionLabel"
             android:text="Kayıtlı Mesajlar" />
-        <Spinner
-            android:id="@+id/spinnerSaved"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/panel_bg"
-            android:padding="8dp" />
-
+        <!-- Rows are added in code (item_saved_message); the page itself scrolls -->
         <LinearLayout
+            android:id="@+id/savedList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/textSavedEmpty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Henüz kayıtlı mesaj yok. Yazdığınız mesajı aşağıdan kaydedin."
+            android:textColor="@color/text_secondary" />
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:weightSum="3">
-            <Button
-                android:id="@+id/btnLoad"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:text="Yükle" />
-            <Button
-                android:id="@+id/btnSave"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:text="Kaydet" />
-            <Button
-                android:id="@+id/btnDelete"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Sil" />
-        </LinearLayout>
+            android:text="Mesajı Kaydet" />
 
         <Button
             android:id="@+id/btnStart"
